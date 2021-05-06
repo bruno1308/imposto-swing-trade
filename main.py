@@ -80,11 +80,12 @@ def print_month_result(month, current_balance, emolumentos, taxa_liquidacao, irr
     print("--------------------------------------------------------------------")
 
 
-def post_process(titulos, qties, prices, optypes, dates, taxa_liquidacao_by_month, emolumentos_by_month, irrf_by_month):
+def post_process(titulos, qties, prices, optypes, dates, taxa_liquidacao_by_year_month, emolumentos_by_year_month, irrf_by_year_month):
     titulo_to_info = {}
-    month_to_current_balance = {}
-    month_to_spend = {}
+    year_month_to_current_balance = {}
+    year_month_to_spend = {}
     last_month = dates[0][3:5]
+    last_year = dates[0][6:10]
     month = ''
     for i in range(0, len(titulos)):
         titulo = titulos[i]
@@ -93,12 +94,14 @@ def post_process(titulos, qties, prices, optypes, dates, taxa_liquidacao_by_mont
         optype = optypes[i]
         date = dates[i]
         month = date[3:5]
-
+        year = date[6:10]
         if month != last_month:
-            print_month_result(last_month, month_to_current_balance[last_month], emolumentos_by_month[last_month],
-                               taxa_liquidacao_by_month[last_month], irrf_by_month[last_month],
-                               month_to_spend[last_month])
+            print_month_result(last_month, year_month_to_current_balance[last_year][last_month], emolumentos_by_year_month[last_year][last_month],
+                               taxa_liquidacao_by_year_month[last_year][last_month], irrf_by_year_month[last_year][last_month],
+                               year_month_to_spend[last_year][last_month])
             last_month = month
+        if year != last_year:
+            last_year = year
         if optype == 'C':
             if titulo in titulo_to_info:
                 avg_price = titulo_to_info[titulo]["avgprice"]
@@ -117,22 +120,26 @@ def post_process(titulos, qties, prices, optypes, dates, taxa_liquidacao_by_mont
                 avg_price = titulo_to_info[titulo]["avgprice"]
                 qty_so_far = titulo_to_info[titulo]["qty"]
                 balance = qty * (price - avg_price)
-                if month not in month_to_spend:
-                    month_to_spend[month] = 0
-                month_to_spend[month] += price * qty
+                if year not in year_month_to_spend:
+                    year_month_to_spend[year] = {}
+                if month not in year_month_to_spend[year]:
+                    year_month_to_spend[year][month] = 0
+                year_month_to_spend[year][month] += price * qty
                 if balance > 0:
                     print("Lucro vendendo " + titulo + " de R$ " + str(round(balance, 2)) + " em " + str(date))
                 else:
                     print("Prejuizo vendendo " + titulo + " de R$ " + str(round(balance, 2)) + " em " + str(date))
                 titulo_to_info[titulo]["qty"] = qty_so_far - qty
-                if month not in month_to_current_balance:
-                    month_to_current_balance[month] = 0
-                month_to_current_balance[month] += balance
+                if year not in year_month_to_current_balance:
+                    year_month_to_current_balance[year] = {}
+                if month not in year_month_to_current_balance[year]:
+                    year_month_to_current_balance[year][month] = 0
+                year_month_to_current_balance[year][month] += balance
                 continue
             else:
                 print("Erro, vendendo " + titulo + " antes de comprar em " + str(date))
-    print_month_result(month, month_to_current_balance[month], emolumentos_by_month[month], taxa_liquidacao_by_month[month],
-                       irrf_by_month[month], month_to_spend[month])
+    print_month_result(month, year_month_to_current_balance[year][month], emolumentos_by_year_month[year][month], taxa_liquidacao_by_year_month[year][month],
+                       irrf_by_year_month[year][month], year_month_to_spend[year][month])
     for key, value in list(titulo_to_info.items()):
         if titulo_to_info[key]['qty'] == 0:
             del titulo_to_info[key]
@@ -147,9 +154,9 @@ if __name__ == "__main__":
     prices = []
     optypes = []
     dates = []
-    emolumentos_by_month = {}
-    irrf_by_month = {}
-    taxa_liquidacao_by_month = {}
+    emolumentos_by_year_month = {}
+    irrf_by_year_month = {}
+    taxa_liquidacao_by_year_month = {}
     retval = os.getcwd()
     os.chdir(retval)
     for file in sorted(glob.glob("*.txt")):
@@ -159,6 +166,7 @@ if __name__ == "__main__":
         lines = text.readlines()
         date = ''
         month = ''
+        year = ''
         for line in lines:
             # print(line)
             if "1-BOVESPA" in line:
@@ -166,6 +174,7 @@ if __name__ == "__main__":
             if "Data pregão" in line:
                 date = lines[idx + 1].replace('\n', '')
                 month = date[3:5]
+                year = date[6:10]
                 dates.append(date)
             if "Taxa de liquidação" in line:
                 split = line.split(' ')
@@ -173,27 +182,33 @@ if __name__ == "__main__":
                 while not is_number(split[k].replace(',', '.')):
                     k += 1
                     continue
-                if month not in taxa_liquidacao_by_month:
-                    taxa_liquidacao_by_month[month] = 0
-                taxa_liquidacao_by_month[month] += float(split[k].replace(',', '.'))
+                if year not in taxa_liquidacao_by_year_month:
+                    taxa_liquidacao_by_year_month[year] = {}
+                if month not in taxa_liquidacao_by_year_month[year]:
+                    taxa_liquidacao_by_year_month[year][month] = 0
+                taxa_liquidacao_by_year_month[year][month] += float(split[k].replace(',', '.'))
             if "Emolumentos" in line:
                 split = line.split(' ')
                 k = 0
                 while not is_number(split[k].replace(',', '.')):
                     k += 1
                     continue
-                if month not in emolumentos_by_month:
-                    emolumentos_by_month[month] = 0
-                emolumentos_by_month[month] += float(split[k].replace(',', '.'))
+                if year not in emolumentos_by_year_month:
+                    emolumentos_by_year_month[year] = {}
+                if month not in emolumentos_by_year_month[year]:
+                    emolumentos_by_year_month[year][month] = 0
+                emolumentos_by_year_month[year][month] += float(split[k].replace(',', '.'))
             if "I.R.R.F." in line:
                 split = line.split(' ')
                 k = 0
                 while not is_number(split[k].replace(',', '.')):
                     k += 1
                     continue
-                if month not in irrf_by_month:
-                    irrf_by_month[month] = 0
-                irrf_by_month[month] += float(split[k].replace(',', '.'))
+                if year not in irrf_by_year_month:
+                    irrf_by_year_month[year] = {}
+                if month not in irrf_by_year_month[year]:
+                    irrf_by_year_month[year][month] = 0
+                irrf_by_year_month[year][month] += float(split[k].replace(',', '.'))
             idx += 1
         new_elements_number = len(optypes) - len(dates)
         for i in range(0, new_elements_number):
@@ -207,7 +222,8 @@ if __name__ == "__main__":
         # print(optypes)
         # print(" LenO = " + str(len(optypes)))
         # print(dates)
-        # print(" LenD = " + str(len(dates)))
-    post_process(titulos, qties, prices, optypes, dates, taxa_liquidacao_by_month, emolumentos_by_month, irrf_by_month)
+        # print(" TAXA  = " + str(irrf_by_year_month))
+    post_process(titulos, qties, prices, optypes, dates, taxa_liquidacao_by_year_month,
+                 emolumentos_by_year_month, irrf_by_year_month)
     #
     #
