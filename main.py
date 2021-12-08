@@ -95,6 +95,16 @@ def post_process(titulos, qties, prices, optypes, dates, taxa_liquidacao_by_year
         date = dates[i]
         month = date[3:5]
         year = date[6:10]
+
+        if year not in year_month_to_current_balance:
+            year_month_to_current_balance[year] = {}
+        if month not in year_month_to_current_balance[year]:
+            year_month_to_current_balance[year][month] = 0
+
+        if year not in year_month_to_spend:
+            year_month_to_spend[year] = {}
+        if month not in year_month_to_spend[year]:
+            year_month_to_spend[year][month] = 0
         if month != last_month:
             print_month_result(last_month, year_month_to_current_balance[last_year][last_month], emolumentos_by_year_month[last_year][last_month],
                                taxa_liquidacao_by_year_month[last_year][last_month], irrf_by_year_month[last_year][last_month],
@@ -102,6 +112,7 @@ def post_process(titulos, qties, prices, optypes, dates, taxa_liquidacao_by_year
             last_month = month
         if year != last_year:
             last_year = year
+
         if optype == 'C':
             if titulo in titulo_to_info:
                 avg_price = titulo_to_info[titulo]["avgprice"]
@@ -120,20 +131,13 @@ def post_process(titulos, qties, prices, optypes, dates, taxa_liquidacao_by_year
                 avg_price = titulo_to_info[titulo]["avgprice"]
                 qty_so_far = titulo_to_info[titulo]["qty"]
                 balance = qty * (price - avg_price)
-                if year not in year_month_to_spend:
-                    year_month_to_spend[year] = {}
-                if month not in year_month_to_spend[year]:
-                    year_month_to_spend[year][month] = 0
+
                 year_month_to_spend[year][month] += price * qty
                 if balance > 0:
                     print("Lucro vendendo " + titulo + " de R$ " + str(round(balance, 2)) + " em " + str(date))
                 else:
                     print("Prejuizo vendendo " + titulo + " de R$ " + str(round(balance, 2)) + " em " + str(date))
                 titulo_to_info[titulo]["qty"] = qty_so_far - qty
-                if year not in year_month_to_current_balance:
-                    year_month_to_current_balance[year] = {}
-                if month not in year_month_to_current_balance[year]:
-                    year_month_to_current_balance[year][month] = 0
                 year_month_to_current_balance[year][month] += balance
                 continue
             else:
@@ -176,7 +180,7 @@ if __name__ == "__main__":
                 month = date[3:5]
                 year = date[6:10]
                 dates.append(date)
-            if "Taxa de liquidação" in line:
+            if "Taxa de liquidação" in line or "Taxa deliquidação" in line:
                 split = line.split(' ')
                 k = 0
                 while not is_number(split[k].replace(',', '.')):
